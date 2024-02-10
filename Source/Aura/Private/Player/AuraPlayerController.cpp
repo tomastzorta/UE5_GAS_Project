@@ -5,10 +5,18 @@
 
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "Interaction/EnemyInterface.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
 	bReplicates = true;
+}
+
+void AAuraPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	CursorTrace();
 }
 
 void AAuraPlayerController::BeginPlay()
@@ -58,4 +66,65 @@ void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
 		ControlledPawn->AddMovementInput(RightVector, InputAxisVector.X); //Adding movement input in the right vector
 	}
 
+}
+
+void AAuraPlayerController::CursorTrace()
+{
+	FHitResult CursorHit;
+	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit); //Getting the hit result under the cursor
+
+	if (!CursorHit.bBlockingHit) return;
+
+	LastActor = ThisActor; //Setting the last actor to the current actor
+	ThisActor = Cast<IEnemyInterface>(CursorHit.GetActor()); //Casting the hit actor to the IEnemyInterface to check if it is an enemy
+
+	/*
+	 * Line Trace from cursor, there are several scenarios:
+	 * A. LastActor is null && ThisActor is null
+	 *	- Do nothing
+	 * B. LastActor is null && ThisActor is valid
+	 *	- Highlight ThisActor
+	 * C. LastActor is valid && ThisActor is null
+	 *	- Unhighlight LastActor
+	 * D. LastActor is valid && ThisActor is valid but LastActor != ThisActor
+	 *	- Unhighlight LastActor and Highlight ThisActor
+	 * E. LastActor is valid && ThisActor is valid and LastActor == ThisActor
+	 *	- Do nothing
+	 */
+
+	if (LastActor == nullptr)
+	{
+		if (ThisActor != nullptr)
+		{
+			// Case B
+			ThisActor->HighlightActor();
+		}
+		else
+		{
+			// Case A
+			// Do nothing
+		}
+	}
+	else // LastActor != nullptr
+	{
+		if (ThisActor == nullptr)
+		{
+			// Case C
+			LastActor->UnHighlightActor();
+		}
+		else // both LastActor and ThisActor are valid
+		{
+			if (LastActor != ThisActor)
+			{
+				// Case D
+				LastActor->UnHighlightActor();
+				ThisActor->HighlightActor();
+			}
+			else
+			{
+				// Case E
+				// Do nothing
+			}
+		}
+	}
 }
